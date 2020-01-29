@@ -13,11 +13,14 @@
 #define SET_DATA 1
 #define SET_BRIGHTNESS 2
 
+#define DEFAULT_BRIGHTNESS 254
+#define DIGITS 6
+
 uint8_t uartDataBytesCounter = 0;
 uint8_t mode = COMMAND_MODE;
 uint8_t currentElement = 0;
-uint8_t display[6] = {1, 2, 3, 4, 5, 6 };
-uint8_t brightness[6] = { 245, 245, 245, 245, 245, 254 };
+uint8_t display[DIGITS];
+uint8_t brightness[DIGITS];
 
 int main() {
 
@@ -26,9 +29,14 @@ int main() {
 
   cli();
 
+  for (uint8_t i = 0; i < DIGITS; i++) {
+    display[i] = 0;
+    brightness[i] = DEFAULT_BRIGHTNESS;
+  }
+
   TCCR2B = 1<<CS20 | 1<<CS21;
   TIMSK2 = 1<<OCIE2A | 1<<TOIE2;
-  OCR2A = 245;
+  OCR2A = DEFAULT_BRIGHTNESS;
   
   UBRR0L = LO(bauddivider);
   UBRR0H = HI(bauddivider);
@@ -67,7 +75,7 @@ ISR (USART_RX_vect) {
       case SET_DATA: {
         display[uartDataBytesCounter] = UDR0;
         uartDataBytesCounter++;
-        if (uartDataBytesCounter >= 6) {
+        if (uartDataBytesCounter >= DIGITS) {
           uartDataBytesCounter = 0;
           mode = COMMAND_MODE;
         }
@@ -77,7 +85,7 @@ ISR (USART_RX_vect) {
       case SET_BRIGHTNESS: {
         brightness[uartDataBytesCounter] = UDR0;
         uartDataBytesCounter++;
-        if (uartDataBytesCounter >= 6) {
+        if (uartDataBytesCounter >= DIGITS) {
           uartDataBytesCounter = 0;
           mode = COMMAND_MODE;
         }
@@ -97,7 +105,7 @@ ISR (USART_RX_vect) {
 ISR (TIMER2_OVF_vect) {
   PORTB = display[currentElement];
   PORTD = (1<<(currentElement + 2));
-  if (++currentElement > 6) currentElement = 0;
+  if (++currentElement > DIGITS) currentElement = 0;
   OCR2A = brightness[currentElement];
 }
 
