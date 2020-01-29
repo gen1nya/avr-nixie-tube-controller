@@ -3,15 +3,17 @@
 
 #define F_CPU 16000000L
 
-#define baudrate 9600L
+#define baudrate 57600L
 #define bauddivider (F_CPU/(16*baudrate)-1)
 #define HI(x) ((x)>>8)
 #define LO(x) ((x)& 0xFF)
 
-#define COMMAND_MODE 0
+#define ANODES_PORT PORTB
+#define DECODER_PORT PORTC
 
-#define SET_DATA 1
-#define SET_BRIGHTNESS 2
+#define COMMAND_MODE 0
+#define SET_DATA_MODE 1
+#define SET_BRIGHTNESS_MODE 2
 
 #define DEFAULT_BRIGHTNESS 254
 #define DIGITS 6
@@ -24,8 +26,8 @@ uint8_t brightness[DIGITS];
 
 int main() {
 
-  DDRB = 0b00001111; // 0-3 for К155ИД1 bcd to decimal decoder
-  DDRD = 0b11111110; // 0 for uart rx, 1 for uart tx, 2-7 for anodes
+  DDRC = 0b00001111; // 0-3 for К155ИД1 bcd to decimal decoder
+  DDRB = 0b11111111; // for anodes
 
   cli();
 
@@ -55,14 +57,14 @@ int main() {
 ISR (USART_RX_vect) {
   if (mode == COMMAND_MODE) {
       switch (UDR0) {
-        case SET_DATA: {
-          mode = SET_DATA;
+        case SET_DATA_MODE: {
+          mode = SET_DATA_MODE;
           uartDataBytesCounter = 0;
           break;
         }
 
-        case SET_BRIGHTNESS: {
-          mode = SET_BRIGHTNESS;
+        case SET_BRIGHTNESS_MODE: {
+          mode = SET_BRIGHTNESS_MODE;
           uartDataBytesCounter = 0;
           break;
         }
@@ -72,7 +74,7 @@ ISR (USART_RX_vect) {
       }
   } else {
     switch (mode) {
-      case SET_DATA: {
+      case SET_DATA_MODE: {
         display[uartDataBytesCounter] = UDR0;
         uartDataBytesCounter++;
         if (uartDataBytesCounter >= DIGITS) {
@@ -82,7 +84,7 @@ ISR (USART_RX_vect) {
         break;
       }
 
-      case SET_BRIGHTNESS: {
+      case SET_BRIGHTNESS_MODE: {
         brightness[uartDataBytesCounter] = UDR0;
         uartDataBytesCounter++;
         if (uartDataBytesCounter >= DIGITS) {
@@ -97,19 +99,19 @@ ISR (USART_RX_vect) {
         uartDataBytesCounter = 0;
         break;
       }
-          
+      
     }
   }
 }
 
 ISR (TIMER2_OVF_vect) {
-  PORTB = display[currentElement];
-  PORTD = (1<<(currentElement + 2));
-  if (++currentElement > DIGITS) currentElement = 0;
+  DECODER_PORT = display[currentElement];
+  ANODES_PORT = 1 << currentElement;
+  if (++currentElement >= DIGITS) currentElement = 0;
   OCR2A = brightness[currentElement];
 }
 
 ISR (TIMER2_COMPA_vect) {
-   PORTD = 0x00;
-   PORTB = 11;
+   ANODES_PORT = 0x00;
+   DECODER_PORT = 11;
 }
